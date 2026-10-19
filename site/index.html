@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cut">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#1b1440">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="description" content="A co-op escape room for the whole family. Everyone plays on their own device.">
@@ -12,50 +12,91 @@
 </head>
 <body>
   <main class="app">
-    <header class="hero">
-      <div class="key" aria-hidden="true">🗝️</div>
-      <h1>Family Escape Room</h1>
-      <p class="tagline">Work together. Share your clues. Escape in 30 minutes!</p>
-    </header>
 
-    <section class="card actions" aria-label="Start playing">
-      <button id="create-btn" class="btn btn-primary" type="button">🚪 Create a Room</button>
+    <!-- Home -->
+    <section id="screen-home" class="screen active">
+      <header class="hero">
+        <div class="key" aria-hidden="true">🗝️</div>
+        <h1>Family Escape Room</h1>
+        <p class="tagline">Work together. Share your clues. Escape in 30 minutes!</p>
+      </header>
 
-      <div class="divider"><span>or</span></div>
+      <section class="card actions" aria-label="Start playing">
+        <button id="create-btn" class="btn btn-primary" type="button">🚪 Create a Room</button>
 
-      <form id="join-form" class="join" autocomplete="off">
-        <label for="room-code">Room code</label>
-        <div class="join-row">
-          <input id="room-code" name="code" inputmode="text" maxlength="4"
-                 placeholder="ABCD" autocapitalize="characters" spellcheck="false" required>
-          <button class="btn btn-secondary" type="submit">Join</button>
-        </div>
+        <div class="divider"><span>or</span></div>
+
+        <form id="join-form" class="join" autocomplete="off">
+          <label for="room-code">Room code</label>
+          <div class="join-row">
+            <input id="room-code" name="code" inputmode="text" maxlength="4"
+                   placeholder="ABCD" autocapitalize="characters" spellcheck="false" required>
+            <button class="btn btn-secondary" type="submit">Join</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="themes" aria-label="Themes">
+        <h2>Vote on a theme together</h2>
+        <ul class="theme-grid">
+          <li class="theme"><span>👻</span>Haunted Mansion</li>
+          <li class="theme"><span>🚀</span>Space Station</li>
+          <li class="theme"><span>🏴‍☠️</span>Pirate Treasure</li>
+          <li class="theme"><span>🕵️</span>Secret Agent Lab</li>
+        </ul>
+      </section>
+
+      <section class="how" aria-label="How to play">
+        <h2>How it works</h2>
+        <ol>
+          <li>One person creates a room and shares the 4-letter code.</li>
+          <li>Everyone joins on their own phone, tablet or computer — 2 to 20 players.</li>
+          <li>Each screen shows <strong>different</strong> clues. Talk (or video call!) to solve the puzzles.</li>
+        </ol>
+      </section>
+    </section>
+
+    <!-- Name + avatar -->
+    <section id="screen-profile" class="screen">
+      <button class="back" type="button" data-go="home">← Back</button>
+      <form id="profile-form" class="card profile" autocomplete="off">
+        <h2 id="profile-title">Who's playing?</h2>
+        <label for="player-name">Your name</label>
+        <input id="player-name" class="text-input" maxlength="16" placeholder="Type your name" required>
+        <p class="label">Pick your character</p>
+        <div id="avatar-grid" class="avatar-grid" role="radiogroup" aria-label="Character"></div>
+        <button id="profile-go" class="btn btn-primary" type="submit">Let's go!</button>
       </form>
     </section>
 
-    <section class="themes" aria-label="Themes">
-      <h2>Vote on a theme together</h2>
-      <ul class="theme-grid">
-        <li class="theme"><span>👻</span>Haunted Mansion</li>
-        <li class="theme"><span>🚀</span>Space Station</li>
-        <li class="theme"><span>🏴‍☠️</span>Pirate Treasure</li>
-        <li class="theme"><span>🕵️</span>Secret Agent Lab</li>
-      </ul>
+    <!-- Lobby -->
+    <section id="screen-lobby" class="screen">
+      <div class="card code-card">
+        <p class="label">Room code</p>
+        <p id="lobby-code" class="big-code">----</p>
+        <p class="hint">Tell everyone to open <strong>esperbrose.github.io/family-escape-room</strong> and type this code.</p>
+        <button id="share-btn" class="btn btn-secondary small" type="button">📤 Share invite</button>
+      </div>
+
+      <div class="card">
+        <h2>Players <span id="player-count" class="count">0/20</span></h2>
+        <ul id="player-list" class="player-list"></ul>
+      </div>
+
+      <div class="card lobby-actions">
+        <button id="start-btn" class="btn btn-primary" type="button" hidden disabled>▶️ Start game (coming soon)</button>
+        <p id="waiting-msg" class="hint center" hidden>Waiting for the host to start the game…</p>
+        <button id="leave-btn" class="btn btn-ghost" type="button">Leave room</button>
+      </div>
     </section>
 
-    <section class="how" aria-label="How to play">
-      <h2>How it works</h2>
-      <ol>
-        <li>One person creates a room and shares the 4-letter code.</li>
-        <li>Everyone joins on their own phone, tablet or computer — 2 to 20 players.</li>
-        <li>Each screen shows <strong>different</strong> clues. Talk (or video call!) to solve the puzzles.</li>
-      </ol>
-    </section>
-
-    <footer class="foot">Ages 6+ · Works on any device · <span id="version">v0.1</span></footer>
+    <footer class="foot">Ages 6+ · Works on any device · v0.2</footer>
   </main>
 
+  <div id="busy" class="busy" hidden><div class="spinner"></div><p id="busy-msg">Connecting…</p></div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

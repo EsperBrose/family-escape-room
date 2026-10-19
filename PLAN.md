@@ -22,7 +22,7 @@ you have to talk to each other. Players can be in the same room or remote.
 - Puzzles and themes are data files, so new themes don't need engine changes.
 
 ## Phase 1 — Foundation
-- [ ] 1.1 Repo, PLAN.md, starter site that auto-deploys to a public link
+- [x] 1.1 Repo, PLAN.md, starter site that auto-deploys to a public link — https://esperbrose.github.io/family-escape-room/
 - [ ] 1.2 Firebase connected: create/join a room with a code, live lobby showing who's in
 - [ ] 1.3 Reconnect when a phone sleeps or loses Wi-Fi; host controls (start, kick)
 

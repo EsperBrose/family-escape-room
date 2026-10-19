@@ -7,6 +7,10 @@ const PEER_PREFIX = 'esperbrose-family-escape-';
 const CODE_LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // no I or O (look like 1 and 0)
 const AVATARS = ['🦊', '🐼', '🐸', '🦁', '🐙', '🦄', '🐵', '🐧', '🐯', '🐶', '🐱', '🦖'];
 const CONNECT_TIMEOUT_MS = 12000;
+// Closed tabs and sleeping phones often don't close WebRTC connections, so
+// every device pings every few seconds and silent ones are dropped.
+const HEARTBEAT_MS = 3000;
+const SILENCE_LIMIT_MS = 10000;
 
 const $ = (id) => document.getElementById(id);
 
@@ -17,8 +21,10 @@ const state = {
   isHost: false,
   code: '',
   players: [],        // [{ id, name, avatar, host }]
-  guests: new Map(),  // host only: peerId -> DataConnection
+  guests: new Map(),  // host only: peerId -> { conn, lastSeen, drop }
   hostConn: null,     // guest only
+  hostLastSeen: 0,    // guest only
+  heartbeat: null,
 };
 
 // ---------- helpers ----------
@@ -144,6 +150,7 @@ function createRoom(attempt = 1) {
     state.players = [{ id, name: state.me.name, avatar: state.me.avatar, host: true }];
     setBusy(null);
     enterLobby();
+    state.heartbeat = setInterval(hostHeartbeat, HEARTBEAT_MS);
   });
 
   peer.on('connection', (conn) => handleGuest(conn));
@@ -168,35 +175,48 @@ function createRoom(attempt = 1) {
 }
 
 function handleGuest(conn) {
+  const drop = () => {
+    const guest = state.guests.get(conn.peer);
+    if (!guest || guest.conn !== conn) return;
+    state.guests.delete(conn.peer);
+    conn.close();
+    const leaving = state.players.find((p) => p.id === conn.peer);
+    state.players = state.players.filter((p) => p.id !== conn.peer);
+    broadcastLobby();
+    if (leaving) showToast(leaving.name + ' left');
+  };
+
   conn.on('data', (msg) => {
+    const guest = state.guests.get(conn.peer);
+    if (guest && guest.conn === conn) guest.lastSeen = Date.now();
     if (!msg || msg.type !== 'hello') return;
     if (state.players.length >= MAX_PLAYERS) {
       conn.send({ type: 'rejected', reason: 'This room is full (20 players).' });
       setTimeout(() => conn.close(), 500);
       return;
     }
-    state.guests.set(conn.peer, conn);
+    state.guests.set(conn.peer, { conn, lastSeen: Date.now(), drop });
     state.players = state.players.filter((p) => p.id !== conn.peer);
     state.players.push({ id: conn.peer, name: cleanName(msg.name), avatar: cleanAvatar(msg.avatar), host: false });
     broadcastLobby();
     showToast(cleanName(msg.name) + ' joined!');
   });
 
-  const drop = () => {
-    if (!state.guests.has(conn.peer)) return;
-    state.guests.delete(conn.peer);
-    const leaving = state.players.find((p) => p.id === conn.peer);
-    state.players = state.players.filter((p) => p.id !== conn.peer);
-    broadcastLobby();
-    if (leaving) showToast(leaving.name + ' left');
-  };
   conn.on('close', drop);
   conn.on('error', drop);
 }
 
+function hostHeartbeat() {
+  const now = Date.now();
+  state.guests.forEach((guest) => {
+    if (now - guest.lastSeen > SILENCE_LIMIT_MS) guest.drop();
+    else if (guest.conn.open) guest.conn.send({ type: 'ping' });
+  });
+}
+
 function broadcastLobby() {
   const msg = { type: 'lobby', code: state.code, players: state.players };
-  state.guests.forEach((conn) => { if (conn.open) conn.send(msg); });
+  state.guests.forEach(({ conn }) => { if (conn.open) conn.send(msg); });
   renderLobby();
 }
 
@@ -224,6 +244,7 @@ function joinRoom(code) {
 
     conn.on('data', (msg) => {
       if (!msg) return;
+      state.hostLastSeen = Date.now();
       if (msg.type === 'rejected') {
         clearTimeout(timer);
         fail(msg.reason);
@@ -239,6 +260,7 @@ function joinRoom(code) {
           state.code = code;
           setBusy(null);
           enterLobby();
+          state.heartbeat = setInterval(() => guestHeartbeat(conn), HEARTBEAT_MS);
         }
         state.players = Array.isArray(msg.players) ? msg.players : [];
         renderLobby();
@@ -261,6 +283,16 @@ function joinRoom(code) {
       fail("Couldn't connect. Check your internet and try again.");
     }
   });
+}
+
+function guestHeartbeat(conn) {
+  if (state.hostConn !== conn) return;
+  if (Date.now() - state.hostLastSeen > SILENCE_LIMIT_MS) {
+    resetToHome();
+    showToast('Lost connection to the host.');
+    return;
+  }
+  if (conn.open) conn.send({ type: 'ping' });
 }
 
 // ---------- lobby ----------
@@ -315,8 +347,9 @@ $('share-btn').addEventListener('click', async () => {
 });
 
 function resetToHome() {
+  clearInterval(state.heartbeat);
   if (state.peer) state.peer.destroy();
-  Object.assign(state, { peer: null, isHost: false, code: '', players: [], hostConn: null, pending: null });
+  Object.assign(state, { peer: null, isHost: false, code: '', players: [], hostConn: null, heartbeat: null, pending: null });
   state.guests = new Map();
   history.replaceState(null, '', location.pathname);
   show('home');
@@ -327,7 +360,7 @@ $('leave-btn').addEventListener('click', () => {
   if (confirm(msg)) resetToHome();
 });
 
-window.addEventListener('beforeunload', () => { if (state.peer) state.peer.destroy(); });
+window.addEventListener('pagehide', () => { if (state.peer) state.peer.destroy(); });
 
 // ---------- start ----------
 

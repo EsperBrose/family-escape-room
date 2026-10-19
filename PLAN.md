@@ -18,13 +18,20 @@ you have to talk to each other. Players can be in the same room or remote.
 
 ## Tech
 - Static site hosted on **GitHub Pages**, deployed by **GitHub Actions**.
-- **Firebase Realtime Database** (free tier) keeps all devices in sync.
+- **PeerJS** (free public broker, no accounts or API keys) connects devices with WebRTC.
+  The room creator's device is the host: it holds the game state and relays it to everyone.
+  The host must keep the game open. If strict networks or host dropouts become a problem,
+  move state to a hosted backend such as Firebase.
+- WebRTC is also used for the built-in voice/video call.
+- **Safety:** no accounts and nothing stored on a server; game data and calls go directly
+  device-to-device, encrypted. Only people with the room code can join, and the host can
+  lock the room and remove players (1.3).
 - Puzzles and themes are data files, so new themes don't need engine changes.
 
 ## Phase 1 — Foundation
 - [x] 1.1 Repo, PLAN.md, starter site that auto-deploys to a public link — https://esperbrose.github.io/family-escape-room/
-- [ ] 1.2 Firebase connected: create/join a room with a code, live lobby showing who's in
-- [ ] 1.3 Reconnect when a phone sleeps or loses Wi-Fi; host controls (start, kick)
+- [x] 1.2 Create/join a room with a code (PeerJS), live lobby showing who's in
+- [ ] 1.3 Reconnect when a phone sleeps or loses Wi-Fi; host controls (start, remove player, lock room)
 
 ## Phase 2 — Game engine
 - [ ] 2.1 Game flow (lobby → vote → play → win/lose) with a shared timer
@@ -38,7 +45,7 @@ you have to talk to each other. Players can be in the same room or remote.
 
 ## Phase 4 — Remote play
 - [ ] 4.1 In-game chat and emoji pings
-- [ ] 4.2 Built-in voice call (WebRTC, Firebase for signaling) with mute button
+- [ ] 4.2 Built-in voice call (WebRTC via PeerJS) with mute button
 - [ ] 4.3 Built-in video call: camera tiles for up to ~8 players, voice-only fallback for bigger groups
 
 ## Phase 5 — More themes + voting

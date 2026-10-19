@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cut">
+  <meta name="theme-color" content="#1b1440">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="description" content="A co-op escape room for the whole family. Everyone plays on their own device.">
+  <title>Family Escape Room</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗝️</text></svg>">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app">
+    <header class="hero">
+      <div class="key" aria-hidden="true">🗝️</div>
+      <h1>Family Escape Room</h1>
+      <p class="tagline">Work together. Share your clues. Escape in 30 minutes!</p>
+    </header>
+
+    <section class="card actions" aria-label="Start playing">
+      <button id="create-btn" class="btn btn-primary" type="button">🚪 Create a Room</button>
+
+      <div class="divider"><span>or</span></div>
+
+      <form id="join-form" class="join" autocomplete="off">
+        <label for="room-code">Room code</label>
+        <div class="join-row">
+          <input id="room-code" name="code" inputmode="text" maxlength="4"
+                 placeholder="ABCD" autocapitalize="characters" spellcheck="false" required>
+          <button class="btn btn-secondary" type="submit">Join</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="themes" aria-label="Themes">
+      <h2>Vote on a theme together</h2>
+      <ul class="theme-grid">
+        <li class="theme"><span>👻</span>Haunted Mansion</li>
+        <li class="theme"><span>🚀</span>Space Station</li>
+        <li class="theme"><span>🏴‍☠️</span>Pirate Treasure</li>
+        <li class="theme"><span>🕵️</span>Secret Agent Lab</li>
+      </ul>
+    </section>
+
+    <section class="how" aria-label="How to play">
+      <h2>How it works</h2>
+      <ol>
+        <li>One person creates a room and shares the 4-letter code.</li>
+        <li>Everyone joins on their own phone, tablet or computer — 2 to 20 players.</li>
+        <li>Each screen shows <strong>different</strong> clues. Talk (or video call!) to solve the puzzles.</li>
+      </ol>
+    </section>
+
+    <footer class="foot">Ages 6+ · Works on any device · <span id="version">v0.1</span></footer>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="app.js"></script>
+</body>
+</html>

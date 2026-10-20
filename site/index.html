@@ -115,6 +115,7 @@
         <span id="play-progress" class="pill">Puzzle 1 of 4</span>
         <span id="play-timer" class="pill timer">⏱️ 10:00</span>
       </div>
+      <div id="progress-bar" class="progress-bar" aria-label="Locks"></div>
       <div id="play-waiting" class="card center" hidden>
         <div class="spinner center-spinner"></div>
         <p class="hint">Getting your next clues…</p>
@@ -125,6 +126,8 @@
           <div id="puzzle-emoji" class="puzzle-emoji" aria-hidden="true"></div>
           <h2 id="puzzle-title"></h2>
           <p id="puzzle-prompt" class="puzzle-prompt"></p>
+          <ul id="hint-list" class="hint-list"></ul>
+          <button id="hint-btn" class="btn btn-ghost small" type="button">💡 Get a hint (−1:00)</button>
         </div>
         <div class="card">
           <h2>🔍 Your clues</h2>
@@ -132,8 +135,9 @@
           <ul id="clue-list" class="clue-list"></ul>
           <p id="clue-empty" class="hint" hidden>You have no clues for this one. Ask your team what they see!</p>
         </div>
-        <div class="card">
+        <div id="answer-card" class="card">
           <h2>🔐 Answer</h2>
+          <p id="answer-feedback" class="answer-feedback" hidden></p>
           <div id="answer-box" class="answer-box"></div>
         </div>
       </div>
@@ -161,6 +165,10 @@
     <div class="spinner"></div>
     <p id="busy-msg">Connecting…</p>
     <button id="busy-leave" class="btn btn-ghost small" type="button" hidden>Leave room</button>
+  </div>
+  <div id="celebrate" class="celebrate" hidden aria-live="polite">
+    <div id="celebrate-emoji" class="celebrate-emoji">🎉</div>
+    <p id="celebrate-text"></p>
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 

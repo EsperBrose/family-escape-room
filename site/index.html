@@ -95,21 +95,58 @@
       </div>
     </section>
 
-    <!-- Game (placeholder until Phase 2) -->
-    <section id="screen-game" class="screen">
-      <div class="card center">
-        <div class="key" aria-hidden="true">🎉</div>
-        <h2>The game has started!</h2>
-        <p class="hint">Puzzles arrive in the next update. For now, this shows everyone moved into the game together.</p>
-        <p class="label">Room <strong id="game-code">----</strong> · <span id="game-count">0</span> players</p>
+    <!-- Theme vote -->
+    <section id="screen-vote" class="screen">
+      <header class="hero">
+        <h1>Pick a theme!</h1>
+        <p class="tagline">Everyone taps the adventure they want. Most votes wins.</p>
+      </header>
+      <div id="vote-list" class="vote-list"></div>
+      <div class="card lobby-actions">
+        <p id="vote-status" class="hint center"></p>
+        <button id="vote-start" class="btn btn-primary" type="button" hidden>🚀 Start with the winner</button>
+        <p id="vote-wait" class="hint center" hidden>The host starts the game when everyone has voted.</p>
+      </div>
+    </section>
+
+    <!-- Playing -->
+    <section id="screen-play" class="screen">
+      <div class="play-bar">
+        <span id="play-progress" class="pill">Puzzle 1 of 4</span>
+        <span id="play-timer" class="pill timer">⏱️ 10:00</span>
+      </div>
+      <div class="card puzzle">
+        <div id="puzzle-emoji" class="puzzle-emoji" aria-hidden="true"></div>
+        <h2 id="puzzle-title"></h2>
+        <p id="puzzle-prompt" class="puzzle-prompt"></p>
+      </div>
+      <div class="card">
+        <h2>🔍 Your clues</h2>
+        <ul id="clue-list" class="clue-list"></ul>
+        <p id="clue-empty" class="hint" hidden>You have no clues for this one. Ask your team what they see!</p>
+      </div>
+      <div class="card">
+        <h2>🔐 Answer</h2>
+        <div id="answer-box" class="answer-box"></div>
+      </div>
+    </section>
+
+    <!-- Win / lose -->
+    <section id="screen-results" class="screen">
+      <div class="card center results">
+        <div id="result-emoji" class="key" aria-hidden="true">🏆</div>
+        <h1 id="result-title"></h1>
+        <p id="result-text" class="tagline"></p>
+        <p id="result-stats" class="pill"></p>
       </div>
       <div class="card lobby-actions">
-        <button id="back-lobby-btn" class="btn btn-secondary" type="button" hidden>↩️ Back to lobby</button>
+        <button id="again-btn" class="btn btn-primary" type="button" hidden>🔁 Play again</button>
+        <p id="again-wait" class="hint center" hidden>Waiting for the host to start a new game…</p>
         <button class="btn btn-ghost leave-btn" type="button">Leave room</button>
       </div>
     </section>
 
-    <footer class="foot">Ages 6+ · Works on any device · v0.3</footer>
+    <footer class="foot">Ages 6+ · Works on any device · v0.4</footer>
   </main>
 
   <div id="busy" class="busy" hidden>
@@ -120,6 +157,8 @@
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <script src="themes.js"></script>
   <script src="app.js"></script>
+  <script src="game.js"></script>
 </body>
 </html>

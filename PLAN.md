@@ -31,7 +31,7 @@ you have to talk to each other. Players can be in the same room or remote.
 ## Phase 1 — Foundation
 - [x] 1.1 Repo, PLAN.md, starter site that auto-deploys to a public link — https://esperbrose.github.io/family-escape-room/
 - [x] 1.2 Create/join a room with a code (PeerJS), live lobby showing who's in
-- [ ] 1.3 Reconnect when a phone sleeps or loses Wi-Fi; host controls (start, remove player, lock room)
+- [x] 1.3 Reconnect when a phone sleeps or loses Wi-Fi; host controls (start, remove player, lock room)
 
 ## Phase 2 — Game engine
 - [ ] 2.1 Game flow (lobby → vote → play → win/lose) with a shared timer

@@ -84,16 +84,39 @@
       </div>
 
       <div class="card lobby-actions">
-        <button id="start-btn" class="btn btn-primary" type="button" hidden disabled>▶️ Start game (coming soon)</button>
+        <div id="host-controls" class="host-controls" hidden>
+          <button id="start-btn" class="btn btn-primary" type="button">▶️ Start game</button>
+          <p id="start-hint" class="hint center">You need at least 2 players to start.</p>
+          <button id="lock-btn" class="btn btn-secondary" type="button">🔓 Room is open</button>
+        </div>
+        <p id="locked-msg" class="hint center" hidden>🔒 The host locked this room. No one new can join.</p>
         <p id="waiting-msg" class="hint center" hidden>Waiting for the host to start the game…</p>
-        <button id="leave-btn" class="btn btn-ghost" type="button">Leave room</button>
+        <button class="btn btn-ghost leave-btn" type="button">Leave room</button>
       </div>
     </section>
 
-    <footer class="foot">Ages 6+ · Works on any device · v0.2</footer>
+    <!-- Game (placeholder until Phase 2) -->
+    <section id="screen-game" class="screen">
+      <div class="card center">
+        <div class="key" aria-hidden="true">🎉</div>
+        <h2>The game has started!</h2>
+        <p class="hint">Puzzles arrive in the next update. For now, this shows everyone moved into the game together.</p>
+        <p class="label">Room <strong id="game-code">----</strong> · <span id="game-count">0</span> players</p>
+      </div>
+      <div class="card lobby-actions">
+        <button id="back-lobby-btn" class="btn btn-secondary" type="button" hidden>↩️ Back to lobby</button>
+        <button class="btn btn-ghost leave-btn" type="button">Leave room</button>
+      </div>
+    </section>
+
+    <footer class="foot">Ages 6+ · Works on any device · v0.3</footer>
   </main>
 
-  <div id="busy" class="busy" hidden><div class="spinner"></div><p id="busy-msg">Connecting…</p></div>
+  <div id="busy" class="busy" hidden>
+    <div class="spinner"></div>
+    <p id="busy-msg">Connecting…</p>
+    <button id="busy-leave" class="btn btn-ghost small" type="button" hidden>Leave room</button>
+  </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>

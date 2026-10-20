@@ -7,7 +7,8 @@ const MIN_PLAYERS = 2;
 const PEER_PREFIX = 'esperbrose-family-escape-';
 const CODE_LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // no I or O (look like 1 and 0)
 const AVATARS = ['🦊', '🐼', '🐸', '🦁', '🐙', '🦄', '🐵', '🐧', '🐯', '🐶', '🐱', '🦖'];
-const CONNECT_TIMEOUT_MS = 12000;
+const CONNECT_TIMEOUT_MS = 20000;
+const CONNECT_RETRY_MS = 7000;       // first WebRTC attempt sometimes stalls; try again
 // Closed tabs and sleeping phones often don't close WebRTC connections, so
 // every device pings every few seconds and silent ones are marked away.
 const HEARTBEAT_MS = 3000;
@@ -97,6 +98,7 @@ function saveSession() {
   writeStore(sessionStorage, 'fer-session', {
     code: state.code,
     isHost: state.isHost,
+    me: state.me,
     room: state.isHost ? state.room : null,
   });
 }
@@ -349,6 +351,11 @@ function joinRoom(code, rejoining = false) {
   else {
     setBusy('Joining room ' + code + '…');
     setTimeout(() => {
+      const stalled = !state.inRoom && state.code === code && state.peer && state.peer.open &&
+        !(state.hostConn && state.hostConn.open);
+      if (stalled) connectToHost();
+    }, CONNECT_RETRY_MS);
+    setTimeout(() => {
       if (!state.inRoom && !state.reconnecting && state.code === code) {
         leaveRoom("Couldn't find room " + code + '. Check the code and try again.');
       }
@@ -575,7 +582,8 @@ const session = readStore(sessionStorage, 'fer-session');
 const linkCode = new URLSearchParams(location.search).get('room');
 
 if (session && session.code && /^[A-Z]{4}$/.test(session.code)) {
-  // This tab was in a room before a reload: go straight back in.
+  // This tab was in a room before a reload: go straight back in as the same player.
+  if (session.me) state.me = { name: cleanName(session.me.name), avatar: cleanAvatar(session.me.avatar) };
   if (session.isHost) createRoom({ code: session.code, room: session.room });
   else joinRoom(session.code, true);
 } else if (linkCode && /^[A-Za-z]{4}$/.test(linkCode)) {

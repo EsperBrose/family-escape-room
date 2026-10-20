@@ -36,7 +36,7 @@ you have to talk to each other. Players can be in the same room or remote.
 ## Phase 2 — Game engine
 - [x] 2.1 Game flow (lobby → theme vote → play → win/lose), shared timer, answer entry
       (tap-sequence, keypad, pick-one), with a 4-puzzle Practice Room theme
-- [ ] 2.2 Split each puzzle's clues across 2–20 players; team mode for big groups
+- [x] 2.2 Split each puzzle's clues across 2–20 players; team mode for big groups
 - [ ] 2.3 Shared progress bar, hints (1-minute penalty), right/wrong feedback for the team
 
 ## Phase 3 — First theme: Haunted Mansion 👻

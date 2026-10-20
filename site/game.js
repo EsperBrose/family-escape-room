@@ -20,7 +20,7 @@ function hostNow() {
 // Every action goes through the host, including the host's own.
 function sendGame(msg) {
   if (state.isHost) hostGameMessage(state.playerId, msg);
-  else if (state.hostConn && state.hostConn.open) state.hostConn.send(msg);
+  else safeSend(state.hostConn, msg);
 }
 
 // ---------- host rules ----------
@@ -61,14 +61,49 @@ function playAgain() {
   broadcastRoom();
 }
 
-// Which puzzle and clues a player sees. For now everyone works on the next
-// unsolved puzzle and sees every clue (clue splitting comes in Milestone 2.2).
-function viewFor(playerId) {
+// Big groups split into teams of about 5, each on its own puzzle.
+const TEAM_MODE_AT = 10;
+const TEAM_SIZE = 5;
+
+// Works out who is on which puzzle and which clues each player holds.
+// Players online are dealt round-robin into teams; each team takes the next
+// unsolved puzzle; inside a team the clues are dealt round-robin so nobody can
+// solve it alone. Everyone gets at least one clue (repeats if clues run short).
+// Recomputed on every change, so teams merge as puzzles run out and clues are
+// re-dealt when someone drops or comes back.
+function dealClues() {
   const theme = currentTheme();
-  if (state.room.phase !== 'playing' || !theme) return null;
-  const puzzle = theme.puzzles.find((p) => !state.room.game.solved.includes(p.id));
-  if (!puzzle) return null;
-  return { puzzleId: puzzle.id, clues: puzzle.clues.map((_, i) => i) };
+  if (state.room.phase !== 'playing' || !theme) return new Map();
+  const unsolved = theme.puzzles.filter((p) => !state.room.game.solved.includes(p.id));
+  const players = state.room.players.filter((p) => p.online);
+  const wanted = players.length >= TEAM_MODE_AT ? Math.floor(players.length / TEAM_SIZE) : 1;
+  const teamCount = Math.max(1, Math.min(wanted, unsolved.length));
+
+  const teams = Array.from({ length: teamCount }, () => []);
+  players.forEach((p, i) => teams[i % teamCount].push(p));
+
+  const views = new Map();
+  teams.forEach((members, t) => {
+    const puzzle = unsolved[t];
+    if (!puzzle) return;
+    const total = puzzle.clues.length;
+    members.forEach((p, j) => {
+      let clues = puzzle.clues.map((_, c) => c).filter((c) => c % members.length === j);
+      if (!clues.length) clues = [j % total];
+      views.set(p.id, {
+        puzzleId: puzzle.id,
+        clues,
+        team: t,
+        teams: teamCount,
+        teammates: members.filter((m) => m.id !== p.id).map((m) => m.avatar + ' ' + m.name),
+      });
+    });
+  });
+  return views;
+}
+
+function viewFor(playerId) {
+  return dealClues().get(playerId) || null;
 }
 
 function isCorrect(puzzle, value) {
@@ -160,7 +195,14 @@ function sanitizeView(view) {
   const clues = Array.isArray(view.clues)
     ? view.clues.filter((i) => Number.isInteger(i) && i >= 0 && i < puzzle.clues.length)
     : [];
-  return { puzzleId: puzzle.id, clues };
+  const teams = Number.isInteger(view.teams) && view.teams > 0 ? Math.min(view.teams, 20) : 1;
+  return {
+    puzzleId: puzzle.id,
+    clues,
+    team: Number.isInteger(view.team) ? view.team : 0,
+    teams,
+    teammates: Array.isArray(view.teammates) ? view.teammates.slice(0, 20).map((s) => String(s).slice(0, 24)) : [],
+  };
 }
 
 // ---------- screens ----------
@@ -226,10 +268,17 @@ function renderPlay() {
   const theme = currentTheme();
   const game = state.room.game;
   const view = state.you;
-  $('play-progress').textContent = 'Puzzle ' + Math.min(game.solved.length + 1, theme.puzzles.length) +
-    ' of ' + theme.puzzles.length;
+  $('play-progress').textContent = '🔓 ' + game.solved.length + ' of ' + theme.puzzles.length + ' open';
   updateTimer();
+  $('play-waiting').hidden = !!view;
+  $('play-main').hidden = !view;
   if (!view) return;
+
+  const TEAM_COLORS = ['🟥', '🟦', '🟩', '🟨'];
+  const teamLine = view.teams > 1
+    ? (TEAM_COLORS[view.team] || '⬜') + ' Team ' + (view.team + 1) + ' of ' + view.teams
+    : '👨‍👩‍👧‍👦 Everyone together';
+  $('team-line').textContent = teamLine + (view.teammates.length ? ' · with ' + view.teammates.join(', ') : '');
 
   const puzzle = theme.puzzles.find((p) => p.id === view.puzzleId);
   const fresh = draft.puzzleId !== puzzle.id;
@@ -309,9 +358,11 @@ function renderAnswer(puzzle) {
   submit.disabled = !ready;
   submit.addEventListener('click', () => {
     const value = input.type === 'code' ? draft.value.join('') : draft.value;
-    sendGame({ type: 'answer', puzzleId: puzzle.id, value });
     draft.value = input.type === 'choice' ? null : [];
-    renderAnswer(puzzle);
+    // On the host this re-renders straight away (maybe onto the next puzzle),
+    // so only redraw if we're still on the same puzzle.
+    sendGame({ type: 'answer', puzzleId: puzzle.id, value });
+    if (draft.puzzleId === puzzle.id && state.room.phase === 'playing') renderAnswer(puzzle);
   });
   box.appendChild(submit);
 }

@@ -115,19 +115,27 @@
         <span id="play-progress" class="pill">Puzzle 1 of 4</span>
         <span id="play-timer" class="pill timer">⏱️ 10:00</span>
       </div>
-      <div class="card puzzle">
-        <div id="puzzle-emoji" class="puzzle-emoji" aria-hidden="true"></div>
-        <h2 id="puzzle-title"></h2>
-        <p id="puzzle-prompt" class="puzzle-prompt"></p>
+      <div id="play-waiting" class="card center" hidden>
+        <div class="spinner center-spinner"></div>
+        <p class="hint">Getting your next clues…</p>
       </div>
-      <div class="card">
-        <h2>🔍 Your clues</h2>
-        <ul id="clue-list" class="clue-list"></ul>
-        <p id="clue-empty" class="hint" hidden>You have no clues for this one. Ask your team what they see!</p>
-      </div>
-      <div class="card">
-        <h2>🔐 Answer</h2>
-        <div id="answer-box" class="answer-box"></div>
+      <div id="play-main" class="play-main">
+        <p id="team-line" class="team-line"></p>
+        <div class="card puzzle">
+          <div id="puzzle-emoji" class="puzzle-emoji" aria-hidden="true"></div>
+          <h2 id="puzzle-title"></h2>
+          <p id="puzzle-prompt" class="puzzle-prompt"></p>
+        </div>
+        <div class="card">
+          <h2>🔍 Your clues</h2>
+          <p class="hint clue-note">Only you can see these. Tell your team!</p>
+          <ul id="clue-list" class="clue-list"></ul>
+          <p id="clue-empty" class="hint" hidden>You have no clues for this one. Ask your team what they see!</p>
+        </div>
+        <div class="card">
+          <h2>🔐 Answer</h2>
+          <div id="answer-box" class="answer-box"></div>
+        </div>
       </div>
     </section>
 

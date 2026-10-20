@@ -46,6 +46,13 @@ function showToast(message) {
   toastTimer = setTimeout(() => toast.classList.remove('show'), 3000);
 }
 
+// Sending on a connection that is opening or breaking can throw; never let one
+// player's bad connection stop updates for everyone else.
+function safeSend(conn, msg) {
+  if (!conn || !conn.open) return;
+  try { conn.send(msg); } catch { /* the heartbeat deals with broken connections */ }
+}
+
 function setBusy(message, canLeave = false) {
   $('busy').hidden = !message;
   $('busy-leave').hidden = !canLeave;
@@ -249,7 +256,7 @@ function welcomeGuest(conn, msg, setId) {
   const id = /^[a-z0-9]{6,24}$/.test(msg.playerId) ? msg.playerId : conn.peer;
   const existing = state.room.players.find((p) => p.id === id);
   const reject = (reason) => {
-    conn.send({ type: 'rejected', reason });
+    safeSend(conn, { type: 'rejected', reason });
     setTimeout(() => conn.close(), 500);
   };
 
@@ -262,6 +269,10 @@ function welcomeGuest(conn, msg, setId) {
 
   setId(id);
   const old = state.guests.get(id);
+  if (old && old.conn === conn && existing && existing.online) {
+    broadcastRoom(); // a repeated hello: just answer again
+    return;
+  }
   if (old && old.conn && old.conn !== conn) old.conn.close();
   state.guests.set(id, { conn, lastSeen: Date.now(), awaySince: 0 });
 
@@ -291,7 +302,7 @@ function removePlayer(id, notice) {
   const guest = state.guests.get(id);
   const player = state.room.players.find((p) => p.id === id);
   if (guest && guest.conn && guest.conn.open) {
-    guest.conn.send({ type: 'kicked' });
+    safeSend(guest.conn, { type: 'kicked' });
     const conn = guest.conn;
     setTimeout(() => conn.close(), 500);
   }
@@ -306,7 +317,7 @@ function hostHeartbeat() {
   state.guests.forEach((guest, id) => {
     if (guest.conn) {
       if (now - guest.lastSeen > SILENCE_LIMIT_MS) markAway(id);
-      else if (guest.conn.open) guest.conn.send({ type: 'ping' });
+      else safeSend(guest.conn, { type: 'ping' });
     } else if (now - guest.awaySince > REMOVE_AWAY_AFTER_MS) {
       removePlayer(id, ' left');
     }
@@ -319,9 +330,10 @@ function hostHeartbeat() {
 function broadcastRoom() {
   const now = Date.now();
   state.guests.forEach(({ conn }, id) => {
-    if (conn && conn.open) {
+    if (!conn || !conn.open) return;
+    try {
       conn.send({ type: 'room', code: state.code, room: state.room, you: viewFor(id), hostNow: now });
-    }
+    } catch { /* that player's connection is broken; the heartbeat will mark them away */ }
   });
   state.you = viewFor(state.playerId);
   saveSession();
@@ -329,7 +341,7 @@ function broadcastRoom() {
 }
 
 function closeRoomForEveryone() {
-  state.guests.forEach(({ conn }) => { if (conn && conn.open) conn.send({ type: 'closed' }); });
+  state.guests.forEach(({ conn }) => { safeSend(conn, { type: 'closed' }); });
 }
 
 $('start-btn').addEventListener('click', () => {
@@ -389,13 +401,27 @@ function connectToHost() {
   const conn = state.peer.connect(PEER_PREFIX + state.code, { reliable: true });
   state.hostConn = conn;
 
+  // The first message right after a connection opens is sometimes lost or very
+  // late, so keep saying hello until the host answers.
+  const hello = () => {
+    if (state.hostConn !== conn || !conn.open) return;
+    try {
+      conn.send({ type: 'hello', playerId: state.playerId, name: state.me.name, avatar: state.me.avatar });
+    } catch { /* channel not ready yet; try again next time */ }
+  };
+  let helloTimer = null;
   conn.on('open', () => {
-    conn.send({ type: 'hello', playerId: state.playerId, name: state.me.name, avatar: state.me.avatar });
+    hello();
+    helloTimer = setInterval(() => {
+      if (state.hostConn !== conn || conn.answered) clearInterval(helloTimer);
+      else hello();
+    }, 2000);
   });
 
   conn.on('data', (msg) => {
     if (!msg || state.hostConn !== conn) return;
     state.hostLastSeen = Date.now();
+    conn.answered = true;
     if (msg.type === 'rejected') leaveRoom(msg.reason);
     else if (msg.type === 'kicked') leaveRoom('The host removed you from the room.');
     else if (msg.type === 'closed') leaveRoom('The host closed the room.');
@@ -417,6 +443,7 @@ function connectToHost() {
   });
 
   conn.on('close', () => {
+    clearInterval(helloTimer);
     if (state.hostConn === conn && state.inRoom) startReconnect();
   });
 }
@@ -454,7 +481,7 @@ function guestHeartbeat() {
     return;
   }
   if (now - state.hostLastSeen > SILENCE_LIMIT_MS) startReconnect();
-  else if (state.hostConn && state.hostConn.open) state.hostConn.send({ type: 'ping' });
+  else safeSend(state.hostConn, { type: 'ping' });
 }
 
 // ---------- room screens ----------
@@ -542,7 +569,7 @@ function saveSessionCleared() {
 function leaveRoom(message) {
   clearInterval(state.heartbeat);
   if (state.isHost) closeRoomForEveryone();
-  else if (state.hostConn && state.hostConn.open) state.hostConn.send({ type: 'bye' });
+  else safeSend(state.hostConn, { type: 'bye' });
   const peer = state.peer;
   // Give the goodbye message a moment to send before tearing down.
   if (peer) setTimeout(() => peer.destroy(), 500);

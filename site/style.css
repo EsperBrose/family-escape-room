@@ -227,6 +227,11 @@ h2 { font-size: 20px; margin: 0 0 12px; }
 }
 .timer { font-variant-numeric: tabular-nums; }
 .timer.urgent { background: #ff5a5a; color: #fff; animation: pulse 1s ease-in-out infinite; }
+.play-main { display: flex; flex-direction: column; gap: 24px; }
+.play-main[hidden] { display: none; }
+.team-line { margin: 0; text-align: center; font-weight: 700; color: var(--muted); }
+.clue-note { margin: -6px 0 12px; }
+.center-spinner { margin: 0 auto; }
 .puzzle { text-align: center; }
 .puzzle-emoji { font-size: 56px; }
 .puzzle-prompt { margin: 0; font-size: 20px; }

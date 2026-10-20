@@ -34,9 +34,10 @@ you have to talk to each other. Players can be in the same room or remote.
 - [x] 1.3 Reconnect when a phone sleeps or loses Wi-Fi; host controls (start, remove player, lock room)
 
 ## Phase 2 — Game engine
-- [ ] 2.1 Game flow (lobby → vote → play → win/lose) with a shared timer
+- [x] 2.1 Game flow (lobby → theme vote → play → win/lose), shared timer, answer entry
+      (tap-sequence, keypad, pick-one), with a 4-puzzle Practice Room theme
 - [ ] 2.2 Split each puzzle's clues across 2–20 players; team mode for big groups
-- [ ] 2.3 Answer entry, shared progress bar, hints
+- [ ] 2.3 Shared progress bar, hints (1-minute penalty), right/wrong feedback for the team
 
 ## Phase 3 — First theme: Haunted Mansion 👻
 - [ ] 3.1 Two picture/color puzzles (little-kid friendly)
@@ -49,7 +50,7 @@ you have to talk to each other. Players can be in the same room or remote.
 - [ ] 4.3 Built-in video call: camera tiles for up to ~8 players, voice-only fallback for bigger groups
 
 ## Phase 5 — More themes + voting
-- [ ] 5.1 Theme voting screen
+- [ ] 5.1 Theme voting screen polish (art and descriptions; basic voting shipped in 2.1)
 - [ ] 5.2 Space Station 🚀
 - [ ] 5.3 Pirate Treasure 🏴‍☠️ and Secret Agent Lab 🕵️
 

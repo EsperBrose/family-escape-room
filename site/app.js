@@ -26,7 +26,7 @@ const state = {
   peer: null,
   isHost: false,
   code: '',
-  room: { players: [], locked: false, phase: 'lobby' }, // players: [{ id, name, avatar, host, online }]
+  room: { players: [], locked: false, phase: 'lobby', votes: {}, game: null }, // players: [{ id, name, avatar, host, online }]
   guests: new Map(),  // host only: playerId -> { conn, lastSeen, awaySince }
   hostConn: null,     // guest only
   hostLastSeen: 0,    // guest only
@@ -181,14 +181,14 @@ function createRoom(restore = null, attempt = 1) {
     state.code = code;
     const me = { id: state.playerId, name: state.me.name, avatar: state.me.avatar, host: true, online: true };
     if (restore && restore.room) {
-      state.room = restore.room;
+      state.room = { votes: {}, game: null, ...restore.room };
       state.room.players = state.room.players.map((p) =>
         p.host ? me : { ...p, online: false });
       state.room.players.forEach((p) => {
         if (!p.host) state.guests.set(p.id, { conn: null, lastSeen: 0, awaySince: Date.now() });
       });
     } else {
-      state.room = { players: [me], locked: false, phase: 'lobby' };
+      state.room = { players: [me], locked: false, phase: 'lobby', votes: {}, game: null };
     }
     setBusy(null);
     state.heartbeat = setInterval(hostHeartbeat, HEARTBEAT_MS);
@@ -230,8 +230,9 @@ function handleGuest(conn) {
       if (guest && guest.conn === conn) guest.lastSeen = Date.now();
     }
     if (msg.type === 'hello') welcomeGuest(conn, msg, (id) => { playerId = id; });
-    else if (msg.type === 'bye' && playerId && state.guests.get(playerId)?.conn === conn) {
-      removePlayer(playerId, ' left');
+    else if (playerId && state.guests.get(playerId)?.conn === conn) {
+      if (msg.type === 'bye') removePlayer(playerId, ' left');
+      else hostGameMessage(playerId, msg);
     }
   });
 
@@ -311,11 +312,18 @@ function hostHeartbeat() {
     }
   });
   if (state.peer && state.peer.disconnected && !state.peer.destroyed) state.peer.reconnect();
+  hostGameTick();
 }
 
+// Everyone gets the shared room plus their own view (which puzzle and clues are theirs).
 function broadcastRoom() {
-  const msg = { type: 'room', code: state.code, room: state.room };
-  state.guests.forEach(({ conn }) => { if (conn && conn.open) conn.send(msg); });
+  const now = Date.now();
+  state.guests.forEach(({ conn }, id) => {
+    if (conn && conn.open) {
+      conn.send({ type: 'room', code: state.code, room: state.room, you: viewFor(id), hostNow: now });
+    }
+  });
+  state.you = viewFor(state.playerId);
   saveSession();
   renderRoom();
 }
@@ -326,13 +334,7 @@ function closeRoomForEveryone() {
 
 $('start-btn').addEventListener('click', () => {
   if (onlinePlayers() < MIN_PLAYERS) return;
-  state.room.phase = 'playing';
-  broadcastRoom();
-});
-
-$('back-lobby-btn').addEventListener('click', () => {
-  state.room.phase = 'lobby';
-  broadcastRoom();
+  startVote();
 });
 
 $('lock-btn').addEventListener('click', () => {
@@ -407,6 +409,8 @@ function connectToHost() {
       setBusy(null);
       if (firstTime && !state.heartbeat) state.heartbeat = setInterval(guestHeartbeat, HEARTBEAT_MS);
       state.room = sanitizeRoom(msg.room);
+      if (typeof msg.hostNow === 'number') state.clockOffset = msg.hostNow - Date.now();
+      state.you = sanitizeView(msg.you);
       saveSession();
       renderRoom();
     }
@@ -424,7 +428,7 @@ function sanitizeRoom(room) {
       id: String(p.id), name: cleanName(p.name), avatar: cleanAvatar(p.avatar), host: !!p.host, online: p.online !== false,
     })),
     locked: !!(room && room.locked),
-    phase: room && room.phase === 'playing' ? 'playing' : 'lobby',
+    ...sanitizeGame(room),
   };
 }
 
@@ -463,12 +467,9 @@ function renderRoom() {
   const room = state.room;
   history.replaceState(null, '', '?room=' + state.code);
   $('lobby-code').textContent = state.code;
-  $('game-code').textContent = state.code;
-  $('game-count').textContent = room.players.length;
   $('host-controls').hidden = !state.isHost;
   $('waiting-msg').hidden = state.isHost;
   $('locked-msg').hidden = state.isHost || !room.locked;
-  $('back-lobby-btn').hidden = !state.isHost;
 
   const canStart = onlinePlayers() >= MIN_PLAYERS;
   $('start-btn').disabled = !canStart;
@@ -509,7 +510,9 @@ function renderRoom() {
   });
   $('player-count').textContent = room.players.length + '/' + MAX_PLAYERS;
 
-  show(room.phase === 'playing' ? 'game' : 'lobby');
+  const screens = { lobby: 'lobby', vote: 'vote', playing: 'play', won: 'results', lost: 'results' };
+  show(screens[room.phase] || 'lobby');
+  renderGame();
 }
 
 function inviteLink() {
@@ -545,8 +548,8 @@ function leaveRoom(message) {
   if (peer) setTimeout(() => peer.destroy(), 500);
   Object.assign(state, {
     peer: null, isHost: false, code: '', hostConn: null, heartbeat: null, pending: null,
-    inRoom: false, reconnecting: 0, hostLastSeen: 0,
-    room: { players: [], locked: false, phase: 'lobby' },
+    inRoom: false, reconnecting: 0, hostLastSeen: 0, you: null,
+    room: { players: [], locked: false, phase: 'lobby', votes: {}, game: null },
   });
   state.guests = new Map();
   saveSessionCleared();

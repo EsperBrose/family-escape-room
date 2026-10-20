@@ -48,6 +48,7 @@ function startGame() {
     endsAt: now + theme.durationMin * 60000,
     finishedAt: 0,
     solved: [],
+    hints: {},        // puzzleId -> how many hints the team has opened
     event: { n: 0 },
   };
   state.room.phase = 'playing';
@@ -117,9 +118,9 @@ function isCorrect(puzzle, value) {
   return value === answer;
 }
 
-function gameEvent(kind, text) {
+function gameEvent(kind, text, puzzleId) {
   const game = state.room.game;
-  game.event = { n: (game.event ? game.event.n : 0) + 1, kind, text };
+  game.event = { n: (game.event ? game.event.n : 0) + 1, kind, text, puzzleId };
 }
 
 function hostGameMessage(playerId, msg) {
@@ -133,23 +134,51 @@ function hostGameMessage(playerId, msg) {
     return;
   }
 
-  if (msg.type === 'answer' && room.phase === 'playing') {
-    const view = viewFor(playerId);
-    const theme = currentTheme();
-    if (!view || view.puzzleId !== msg.puzzleId) return; // stale or not their puzzle
-    const puzzle = theme.puzzles.find((p) => p.id === msg.puzzleId);
+  if (room.phase !== 'playing') return;
+  const view = viewFor(playerId);
+  const theme = currentTheme();
+  if (!view || view.puzzleId !== msg.puzzleId) return; // stale or not their puzzle
+  const puzzle = theme.puzzles.find((p) => p.id === msg.puzzleId);
+
+  if (msg.type === 'answer') {
     if (isCorrect(puzzle, msg.value)) {
       room.game.solved.push(puzzle.id);
-      gameEvent('solved', player.name + ' opened ' + puzzle.title + '! 🎉');
+      gameEvent('solved', player.name + ' opened ' + puzzle.title + '! 🎉', puzzle.id);
       if (room.game.solved.length === theme.puzzles.length) {
         room.phase = 'won';
         room.game.finishedAt = Date.now();
       }
     } else {
-      gameEvent('wrong', player.name + ' tried, but that’s not it. Keep going!');
+      gameEvent('wrong', player.name + ' tried ' + describeAnswer(puzzle, msg.value) + ', but that’s not it.', puzzle.id);
     }
     broadcastRoom();
   }
+
+  if (msg.type === 'hint') {
+    room.game.hints = room.game.hints || {}; // games saved before hints existed
+    const used = room.game.hints[puzzle.id] || 0;
+    if (used >= puzzle.hints.length) return;
+    room.game.hints[puzzle.id] = used + 1;
+    // Each hint costs a minute, but never ends the game on the spot.
+    const now = Date.now();
+    room.game.endsAt = Math.max(room.game.endsAt - HINT_COST_MS, Math.min(room.game.endsAt, now + 10000));
+    gameEvent('hint', player.name + ' opened a hint 💡 (−1:00)', puzzle.id);
+    broadcastRoom();
+  }
+}
+
+const HINT_COST_MS = 60000;
+
+// Turns a submitted answer into something short to show the team.
+function describeAnswer(puzzle, value) {
+  if (puzzle.input.type === 'sequence') return Array.isArray(value) ? value.slice(0, 8).map(String).join('') : '?';
+  if (puzzle.input.type === 'code') return String(value || '').slice(0, 8).toUpperCase();
+  const opt = puzzle.input.options.find((o) => o.id === value);
+  return opt ? opt.emoji : '?';
+}
+
+function hintsUsed(game) {
+  return Object.values(game.hints || {}).reduce((a, b) => a + b, 0);
 }
 
 // Called by the host heartbeat.
@@ -178,10 +207,21 @@ function sanitizeGame(room) {
       endsAt: Number(g.endsAt) || 0,
       finishedAt: Number(g.finishedAt) || 0,
       solved: Array.isArray(g.solved) ? g.solved.map(String) : [],
+      hints: {},
       event: g.event && typeof g.event.n === 'number'
-        ? { n: g.event.n, kind: String(g.event.kind || ''), text: String(g.event.text || '') }
+        ? {
+          n: g.event.n,
+          kind: String(g.event.kind || ''),
+          text: String(g.event.text || '').slice(0, 120),
+          puzzleId: String(g.event.puzzleId || ''),
+        }
         : { n: 0 },
     };
+    if (g.hints && typeof g.hints === 'object') {
+      Object.entries(g.hints).forEach(([pid, n]) => {
+        if (Number.isInteger(n) && n > 0) game.hints[String(pid)] = Math.min(n, 10);
+      });
+    }
   }
   if (phase !== 'lobby' && phase !== 'vote' && !game) return { phase: 'lobby', votes, game: null };
   return { phase, votes, game };
@@ -222,18 +262,44 @@ function formatTime(ms) {
   return Math.floor(total / 60) + ':' + String(total % 60).padStart(2, '0');
 }
 
+let feedback = null; // last wrong try on this team's puzzle: { puzzleId, text, n }
+
 function renderGame() {
+  const event = state.room.game && state.room.game.event;
+  // Skip old events when joining or reconnecting mid-game.
+  const fresh = event && event.n > lastEventShown && (lastEventShown > 0 || event.n === 1);
+  const mine = fresh && state.you && state.you.puzzleId === event.puzzleId;
+  if (fresh && event.kind === 'wrong' && mine) feedback = { puzzleId: event.puzzleId, text: event.text, n: event.n };
+  if (event && event.n > lastEventShown) lastEventShown = event.n;
+  if (!state.room.game) { lastEventShown = 0; feedback = null; }
+
   const phase = state.room.phase;
   if (phase === 'vote') renderVote();
   else if (phase === 'playing') renderPlay();
   else if (phase === 'won' || phase === 'lost') renderResults();
 
-  const event = state.room.game && state.room.game.event;
-  if (event && event.n > lastEventShown) {
-    if (lastEventShown > 0 || event.n === 1) showToast(event.text);
-    lastEventShown = event.n;
-  }
-  if (!state.room.game) lastEventShown = 0;
+  if (!fresh) return;
+  if (event.kind === 'solved') celebrate('🎉', event.text);
+  else if (event.kind === 'hint' && mine) showToast(event.text);
+  else if (event.kind === 'wrong' && mine) shake($('answer-card'));
+}
+
+function celebrate(emoji, text) {
+  $('celebrate-emoji').textContent = emoji;
+  $('celebrate-text').textContent = text;
+  const box = $('celebrate');
+  box.hidden = false;
+  box.classList.remove('pop');
+  void box.offsetWidth; // restart the animation
+  box.classList.add('pop');
+  clearTimeout(celebrate.timer);
+  celebrate.timer = setTimeout(() => { box.hidden = true; }, 1800);
+}
+
+function shake(node) {
+  node.classList.remove('shake');
+  void node.offsetWidth;
+  node.classList.add('shake');
 }
 
 function renderVote() {
@@ -270,6 +336,16 @@ function renderPlay() {
   const view = state.you;
   $('play-progress').textContent = '🔓 ' + game.solved.length + ' of ' + theme.puzzles.length + ' open';
   updateTimer();
+
+  // One segment per lock: open ones fill in, yours glows.
+  const bar = $('progress-bar');
+  bar.innerHTML = '';
+  theme.puzzles.forEach((p) => {
+    const open = game.solved.includes(p.id);
+    const seg = el('span', 'seg' + (open ? ' open' : '') + (view && view.puzzleId === p.id ? ' current' : ''), open ? '✅' : p.emoji);
+    seg.title = p.title;
+    bar.appendChild(seg);
+  });
   $('play-waiting').hidden = !!view;
   $('play-main').hidden = !view;
   if (!view) return;
@@ -290,6 +366,26 @@ function renderPlay() {
   $('puzzle-emoji').textContent = puzzle.emoji;
   $('puzzle-title').textContent = puzzle.title;
   $('puzzle-prompt').textContent = puzzle.prompt;
+
+  // Hints are shared by everyone on the puzzle.
+  const opened = Math.min((game.hints || {})[puzzle.id] || 0, puzzle.hints.length);
+  const hintList = $('hint-list');
+  hintList.innerHTML = '';
+  puzzle.hints.slice(0, opened).forEach((h) => hintList.appendChild(el('li', 'hint-item', '💡 ' + h)));
+  const left = puzzle.hints.length - opened;
+  const hintBtn = $('hint-btn');
+  hintBtn.disabled = left === 0;
+  hintBtn.textContent = left ? '💡 Get a hint (−1:00) · ' + left + ' left' : '💡 No more hints';
+  hintBtn.onclick = () => {
+    if (confirm('Use a hint? It takes 1 minute off the clock for everyone.')) {
+      sendGame({ type: 'hint', puzzleId: puzzle.id });
+    }
+  };
+
+  const fb = $('answer-feedback');
+  const showFb = feedback && feedback.puzzleId === puzzle.id;
+  fb.hidden = !showFb;
+  if (showFb) fb.textContent = '❌ ' + feedback.text;
 
   const clues = $('clue-list');
   clues.innerHTML = '';
@@ -387,7 +483,8 @@ function renderResults() {
   const stats = won
     ? 'Time left: ' + formatTime(game.endsAt - game.finishedAt)
     : 'Locks opened: ' + game.solved.length + ' of ' + theme.puzzles.length;
-  $('result-stats').textContent = stats;
+  const hints = hintsUsed(game);
+  $('result-stats').textContent = stats + ' · ' + (hints ? hints + ' hint' + (hints > 1 ? 's' : '') : 'no hints!');
   $('again-btn').hidden = !state.isHost;
   $('again-wait').hidden = state.isHost;
 }
